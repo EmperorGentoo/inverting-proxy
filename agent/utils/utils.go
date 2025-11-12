@@ -241,7 +241,10 @@ func ListPendingRequests(ctx context.Context, client *http.Client, proxyHost, ba
 	if err != nil {
 		return nil, fmt.Errorf("A proxy request failed: %q", err.Error())
 	}
-	defer proxyResp.Body.Close()
+	defer func() {
+		io.Copy(io.Discard, proxyResp.Body)
+		proxyResp.Body.Close()
+	}()
 	return parseRequestIDs(proxyResp, metricHandler)
 }
 
@@ -371,6 +374,7 @@ func postResponseWithRetries(client *http.Client, proxyURL, backendID, requestID
 			}
 			continue
 		}
+		io.Copy(io.Discard, proxyResp.Body)
 		proxyResp.Body.Close()
 		if 500 <= proxyResp.StatusCode && proxyResp.StatusCode < 600 {
 			if _, seekErr := proxyReadSeeker.Seek(0, io.SeekStart); seekErr != nil {
